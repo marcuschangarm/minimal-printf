@@ -45,7 +45,7 @@ static void init_serial()
         not_initialized = false;
 
 #if DEVICE_SERIAL
-        serial_init(&stdio_uart, STDIO_UART_TX, STDIO_UART_RX);
+        serial_init(&stdio_uart, STDIO_UART_TX, NC);
 #if MBED_CONF_PLATFORM_STDIO_BAUD_RATE
         serial_baud(&stdio_uart, MBED_CONF_PLATFORM_STDIO_BAUD_RATE);
 #endif
