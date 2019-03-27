@@ -1,21 +1,25 @@
 {
     "name": "minimal-printf",
     "config": {
-        "enable-floating-point": {
-            "help": "Enable floating point printing",
-            "value": false
-        },
-        "set-floating-point-max-decimals": {
-            "help": "Maximum number of decimals to be printed",
-            "value": 6
+        "console-output": {
+            "help": "Console output. Options: UART, SWO",
+            "value": "UART"
         },
         "enable-64-bit": {
             "help": "Enable printing 64 bit integers",
             "value": true
         },
-        "console-output": {
-            "help": "Console output. Options: UART, SWO",
-            "value": "UART"
+        "enable-floating-point": {
+            "help": "Enable floating point printing",
+            "value": false
+        },
+        "enable-string-precision": {
+            "help": "Enable support for %.[number]s and %.*s",
+            "value": false
+        },
+        "set-floating-point-max-decimals": {
+            "help": "Maximum number of decimals to be printed",
+            "value": 6
         }
     }
 }

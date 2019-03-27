@@ -131,6 +131,12 @@ static void init_serial()
 #endif
 
 /**
+ * Precision defines
+ */
+#define PRECISION_DEFAULT (INT_MAX)
+#define PRECISION_ARGUMENT (-1)
+
+/**
  * Enum for storing width modifier.
  */
 typedef enum {
@@ -153,7 +159,12 @@ static void mbed_minimal_formatted_string_unsigned(char* buffer, size_t length, 
 static void mbed_minimal_formatted_string_hexadecimal(char* buffer, size_t length, int* result, MBED_UNSIGNED_STORAGE value);
 static void mbed_minimal_formatted_string_void_pointer(char* buffer, size_t length, int* result, const void* value);
 static void mbed_minimal_formatted_string_character(char* buffer, size_t length, int* result, char character);
+
+#if MBED_CONF_MINIMAL_PRINTF_ENABLE_STRING_PRECISION
+static void mbed_minimal_formatted_string_string_precision(char* buffer, size_t length, int* result, const char* string, size_t precision);
+#else
 static void mbed_minimal_formatted_string_string(char* buffer, size_t length, int* result, const char* string);
+#endif
 
 /**
  * @brief      Print a single character, checking for buffer and size overflows.
@@ -398,6 +409,26 @@ static void mbed_minimal_formatted_string_character(char* buffer, size_t length,
     }
 }
 
+#if MBED_CONF_MINIMAL_PRINTF_ENABLE_STRING_PRECISION
+/**
+ * @brief      Print string with precision.
+ *
+ * @param      buffer     The buffer to store output (NULL for stdout).
+ * @param[in]  length     The length of the buffer.
+ * @param      result     The current output location.
+ * @param[in]  value      The string to be printed.
+ * @param[in]  precision  The maximum number of characters to be printed.
+ */
+static void mbed_minimal_formatted_string_string_precision(char* buffer, size_t length, int* result, const char* string, size_t precision)
+{
+    while ((*string != '\0') && (precision))
+    {
+        mbed_minimal_putchar(buffer, length, result, *string);
+        string ++;
+        precision--;
+    }
+}
+#else
 /**
  * @brief      Print string.
  *
@@ -414,6 +445,7 @@ static void mbed_minimal_formatted_string_string(char* buffer, size_t length, in
         string ++;
     }
 }
+#endif
 
 /**
  * @brief      Parse formatted string and invoke write handlers based on type.
@@ -462,12 +494,44 @@ int mbed_minimal_formatted_string(char* buffer, size_t length, const char* forma
                         (((format[next_index] >= '0') && (format[next_index] <= '9')) ||
                          (format[next_index] == '-') ||
                          (format[next_index] == '+') ||
-                         (format[next_index] == '#') ||
-                         (format[next_index] == '.')))
+                         (format[next_index] == '#')))
                 {
                     /* skip to next character */
                     next_index++;
                 }
+
+#if MBED_CONF_MINIMAL_PRINTF_ENABLE_STRING_PRECISION
+                /* look for precision modifier, default to SIZE_MAX */
+                int precision = PRECISION_DEFAULT;
+
+                if ((format[next_index] == '.') &&
+                    (format[next_index + 1] == '*') &&
+                    (format[next_index + 2] == 's'))
+                {
+                    next_index += 2;
+                    precision = PRECISION_ARGUMENT;
+                }
+                else if (format[next_index] == '.')
+                {
+                    /* precision modifier found, reset default to 0 and increment index */
+                    next_index++;
+                    precision = 0;
+
+                    /* parse precision until not a decimal */
+                    size_t inner_index = 0;
+
+                    while ((format[next_index + inner_index] >= '0') &&
+                           (format[next_index + inner_index] <= '9'))
+                    {
+                        precision = precision * 10 + format[next_index + inner_index] - '0';
+
+                        inner_index++;
+                    }
+
+                    /* move index forward to point at next character */
+                    next_index += inner_index;
+                }
+#endif
 
                 /* look for length modifier, default to NONE */
                 length_t length_modifier = LENGTH_NONE;
@@ -667,10 +731,22 @@ int mbed_minimal_formatted_string(char* buffer, size_t length, const char* forma
                 /* string */
                 else if (next == 's')
                 {
+#if MBED_CONF_MINIMAL_PRINTF_ENABLE_STRING_PRECISION
+                    if (precision == PRECISION_ARGUMENT)
+                    {
+                        precision = va_arg(arguments, MBED_SIGNED_NATIVE_TYPE);
+                    }
+
+                    char* value = va_arg(arguments, char*);
+                    index = next_index;
+
+                    mbed_minimal_formatted_string_string_precision(buffer, length, &result, value, precision);
+#else
                     char* value = va_arg(arguments, char*);
                     index = next_index;
 
                     mbed_minimal_formatted_string_string(buffer, length, &result, value);
+#endif
                 }
                 /* pointer */
                 else if (next == 'p')
