@@ -18,3 +18,7 @@
 #include <stdarg.h>
 
 int mbed_minimal_formatted_string(char* buffer, size_t length, const char* format, va_list arguments);
+
+#if MBED_CONF_MINIMAL_PRINTF_ENABLE_FILE_STREAM
+int mbed_minimal_formatted_file(FILE* stream, const char* format, va_list arguments);
+#endif

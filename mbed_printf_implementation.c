@@ -151,6 +151,13 @@ typedef enum {
 } length_t;
 
 /**
+ * Global FILE stream.
+ */
+#if MBED_CONF_MINIMAL_PRINTF_ENABLE_FILE_STREAM
+static FILE* global_file_stream = NULL;
+#endif
+
+/**
  * Prototypes
  */
 static void mbed_minimal_formatted_string_signed(char* buffer, size_t length, int* result, MBED_SIGNED_STORAGE value);
@@ -182,7 +189,16 @@ static void mbed_minimal_putchar(char *buffer, size_t length, int* result, char 
             }
             else
             {
-                MBED_PRINT_CHARACTER(data);
+#if MBED_CONF_MINIMAL_PRINTF_ENABLE_FILE_STREAM
+                if (global_file_stream)
+                {
+                    fputc(data, global_file_stream);
+                }
+                else
+#endif
+                {
+                    MBED_PRINT_CHARACTER(data);
+                }
             }
         }
         /* increment 'result' even if data was not written. This ensures that
@@ -777,3 +793,25 @@ int mbed_minimal_formatted_string(char* buffer, size_t length, const char* forma
 
     return result;
 }
+
+#if MBED_CONF_MINIMAL_PRINTF_ENABLE_FILE_STREAM
+/**
+ * @brief      Parse formatted string and write to file handler.
+ *
+ * @param      stream     The FILE stream to write to.
+ * @param[in]  format     The formatted string.
+ * @param[in]  arguments  The va_list arguments.
+ *
+ * @return     Number of characters written.
+ */
+int mbed_minimal_formatted_file(FILE* stream, const char* format, va_list arguments)
+{
+    int result = 0;
+
+    global_file_stream = stream;
+    result = mbed_minimal_formatted_string(NULL, LONG_MAX, format, arguments);
+    global_file_stream = NULL;
+
+    return result;
+}
+#endif
