@@ -151,21 +151,14 @@ typedef enum {
 } length_t;
 
 /**
- * Global FILE stream.
- */
-#if MBED_CONF_MINIMAL_PRINTF_ENABLE_FILE_STREAM
-static FILE* global_file_stream = NULL;
-#endif
-
-/**
  * Prototypes
  */
-static void mbed_minimal_formatted_string_signed(char* buffer, size_t length, int* result, MBED_SIGNED_STORAGE value);
-static void mbed_minimal_formatted_string_unsigned(char* buffer, size_t length, int* result, MBED_UNSIGNED_STORAGE value);
-static void mbed_minimal_formatted_string_hexadecimal(char* buffer, size_t length, int* result, MBED_UNSIGNED_STORAGE value);
-static void mbed_minimal_formatted_string_void_pointer(char* buffer, size_t length, int* result, const void* value);
-static void mbed_minimal_formatted_string_character(char* buffer, size_t length, int* result, char character);
-static void mbed_minimal_formatted_string_string(char* buffer, size_t length, int* result, const char* string, size_t precision);
+static void mbed_minimal_formatted_string_signed(char* buffer, size_t length, int* result, MBED_SIGNED_STORAGE value, FILE* stream);
+static void mbed_minimal_formatted_string_unsigned(char* buffer, size_t length, int* result, MBED_UNSIGNED_STORAGE value, FILE* stream);
+static void mbed_minimal_formatted_string_hexadecimal(char* buffer, size_t length, int* result, MBED_UNSIGNED_STORAGE value, FILE* stream);
+static void mbed_minimal_formatted_string_void_pointer(char* buffer, size_t length, int* result, const void* value, FILE* stream);
+static void mbed_minimal_formatted_string_character(char* buffer, size_t length, int* result, char character, FILE* stream);
+static void mbed_minimal_formatted_string_string(char* buffer, size_t length, int* result, const char* string, size_t precision, FILE* stream);
 
 /**
  * @brief      Print a single character, checking for buffer and size overflows.
@@ -175,7 +168,7 @@ static void mbed_minimal_formatted_string_string(char* buffer, size_t length, in
  * @param      result  The current output location.
  * @param[in]  data    The char to be printed.
  */
-static void mbed_minimal_putchar(char *buffer, size_t length, int* result, char data)
+static void mbed_minimal_putchar(char *buffer, size_t length, int* result, char data, FILE* stream)
 {
     /* only continue if 'result' doesn't overflow */
     if ((*result >= 0) && (*result <= INT_MAX - 1))
@@ -190,9 +183,9 @@ static void mbed_minimal_putchar(char *buffer, size_t length, int* result, char 
             else
             {
 #if MBED_CONF_MINIMAL_PRINTF_ENABLE_FILE_STREAM
-                if (global_file_stream)
+                if (stream)
                 {
-                    fputc(data, global_file_stream);
+                    fputc(data, (FILE*) stream);
                 }
                 else
 #endif
@@ -215,7 +208,7 @@ static void mbed_minimal_putchar(char *buffer, size_t length, int* result, char 
  * @param      result  The current output location.
  * @param[in]  value   The value to be printed.
  */
-static void mbed_minimal_formatted_string_signed(char* buffer, size_t length, int* result, MBED_SIGNED_STORAGE value)
+static void mbed_minimal_formatted_string_signed(char* buffer, size_t length, int* result, MBED_SIGNED_STORAGE value, FILE* stream)
 {
     MBED_UNSIGNED_STORAGE new_value = 0;
 
@@ -223,7 +216,7 @@ static void mbed_minimal_formatted_string_signed(char* buffer, size_t length, in
     if (value < 0)
     {
         /* write sign */
-        mbed_minimal_putchar(buffer, length, result, '-');
+        mbed_minimal_putchar(buffer, length, result, '-', stream);
 
         /* get absolute value using two's complement */
         new_value = ~((MBED_UNSIGNED_STORAGE) value) + 1;
@@ -234,7 +227,7 @@ static void mbed_minimal_formatted_string_signed(char* buffer, size_t length, in
     }
 
     /* use unsigned long int function */
-    mbed_minimal_formatted_string_unsigned(buffer, length, result, new_value);
+    mbed_minimal_formatted_string_unsigned(buffer, length, result, new_value, stream);
 }
 
 /**
@@ -245,12 +238,12 @@ static void mbed_minimal_formatted_string_signed(char* buffer, size_t length, in
  * @param      result  The current output location.
  * @param[in]  value   The value to be printed.
  */
-static void mbed_minimal_formatted_string_unsigned(char* buffer, size_t length, int* result, MBED_UNSIGNED_STORAGE value)
+static void mbed_minimal_formatted_string_unsigned(char* buffer, size_t length, int* result, MBED_UNSIGNED_STORAGE value, FILE* stream)
 {
     /* treat 0 as a corner case */
     if (value == 0)
     {
-        mbed_minimal_putchar(buffer, length, result, '0');
+        mbed_minimal_putchar(buffer, length, result, '0', stream);
     }
     else
     {
@@ -272,7 +265,7 @@ static void mbed_minimal_formatted_string_unsigned(char* buffer, size_t length, 
         /* write scratch pad to buffer or output */
         for ( ; index > 0; index--)
         {
-            mbed_minimal_putchar(buffer, length, result, scratch[index - 1]);
+            mbed_minimal_putchar(buffer, length, result, scratch[index - 1], stream);
         }
     }
 }
@@ -285,7 +278,7 @@ static void mbed_minimal_formatted_string_unsigned(char* buffer, size_t length, 
  * @param      result  The current output location.
  * @param[in]  value   The value to be printed.
  */
-static void mbed_minimal_formatted_string_hexadecimal(char* buffer, size_t length, int* result, MBED_UNSIGNED_STORAGE value)
+static void mbed_minimal_formatted_string_hexadecimal(char* buffer, size_t length, int* result, MBED_UNSIGNED_STORAGE value, FILE* stream)
 {
     bool print_leading_zero = false;
 
@@ -304,9 +297,9 @@ static void mbed_minimal_formatted_string_hexadecimal(char* buffer, size_t lengt
                                        '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 
             if (print_leading_zero || nibble_one != 0) {
-                mbed_minimal_putchar(buffer, length, result, int2hex[nibble_one]);
+                mbed_minimal_putchar(buffer, length, result, int2hex[nibble_one], stream);
             }
-            mbed_minimal_putchar(buffer, length, result, int2hex[nibble_two]);
+            mbed_minimal_putchar(buffer, length, result, int2hex[nibble_two], stream);
 
             /* print zeroes after the first non-zero byte */
             print_leading_zero = true;
@@ -322,14 +315,14 @@ static void mbed_minimal_formatted_string_hexadecimal(char* buffer, size_t lengt
  * @param      result  The current output location.
  * @param[in]  value   The pointer to be printed.
  */
-static void mbed_minimal_formatted_string_void_pointer(char* buffer, size_t length, int* result, const void* value)
+static void mbed_minimal_formatted_string_void_pointer(char* buffer, size_t length, int* result, const void* value, FILE* stream)
 {
     /* write leading 0x */
-    mbed_minimal_putchar(buffer, length, result, '0');
-    mbed_minimal_putchar(buffer, length, result, 'x');
+    mbed_minimal_putchar(buffer, length, result, '0', stream);
+    mbed_minimal_putchar(buffer, length, result, 'x', stream);
 
     /* write rest as a regular hexadecimal number */
-    mbed_minimal_formatted_string_hexadecimal(buffer, length, result, (ptrdiff_t) value);
+    mbed_minimal_formatted_string_hexadecimal(buffer, length, result, (ptrdiff_t) value, stream);
 }
 
 #if MBED_CONF_MINIMAL_PRINTF_ENABLE_FLOATING_POINT
@@ -341,16 +334,16 @@ static void mbed_minimal_formatted_string_void_pointer(char* buffer, size_t leng
  * @param      result  The current output location.
  * @param[in]  value   The value to be printed.
  */
-static void mbed_minimal_formatted_string_double(char* buffer, size_t length, int* result, double value)
+static void mbed_minimal_formatted_string_double(char* buffer, size_t length, int* result, double value, FILE* stream)
 {
     /* get integer part */
     MBED_SIGNED_STORAGE integer = value;
 
     /* write integer part */
-    mbed_minimal_formatted_string_signed(buffer, length, result, integer);
+    mbed_minimal_formatted_string_signed(buffer, length, result, integer, stream);
 
     /* write decimal point */
-    mbed_minimal_formatted_string_character(buffer, length, result, '.');
+    mbed_minimal_formatted_string_character(buffer, length, result, '.', stream);
 
     /* get decimal part */
     double precision = 1.0;
@@ -384,7 +377,7 @@ static void mbed_minimal_formatted_string_double(char* buffer, size_t length, in
     }
 
     /* write decimal part */
-    mbed_minimal_formatted_string_unsigned(buffer, length, result, decimal);
+    mbed_minimal_formatted_string_unsigned(buffer, length, result, decimal, stream);
 }
 #endif
 
@@ -396,12 +389,12 @@ static void mbed_minimal_formatted_string_double(char* buffer, size_t length, in
  * @param      result  The current output location.
  * @param[in]  value   The character to be printed.
  */
-static void mbed_minimal_formatted_string_character(char* buffer, size_t length, int* result, char character)
+static void mbed_minimal_formatted_string_character(char* buffer, size_t length, int* result, char character, FILE* stream)
 {
     /* write character */
     if (buffer)
     {
-        mbed_minimal_putchar(buffer, length, result, character);
+        mbed_minimal_putchar(buffer, length, result, character, stream);
     }
     else
     {
@@ -409,13 +402,13 @@ static void mbed_minimal_formatted_string_character(char* buffer, size_t length,
 #if MBED_CONF_PLATFORM_STDIO_CONVERT_NEWLINES
         if (character == '\n' && mbed_stdio_out_prev != '\r')
         {
-            mbed_minimal_putchar(buffer, length, result, '\r');
+            mbed_minimal_putchar(buffer, length, result, '\r', stream);
         }
 
         /* cache character */
         mbed_stdio_out_prev = character;
 #endif
-        mbed_minimal_putchar(buffer, length, result, character);
+        mbed_minimal_putchar(buffer, length, result, character, stream);
     }
 }
 
@@ -428,11 +421,11 @@ static void mbed_minimal_formatted_string_character(char* buffer, size_t length,
  * @param[in]  value      The string to be printed.
  * @param[in]  precision  The maximum number of characters to be printed.
  */
-static void mbed_minimal_formatted_string_string(char* buffer, size_t length, int* result, const char* string, size_t precision)
+static void mbed_minimal_formatted_string_string(char* buffer, size_t length, int* result, const char* string, size_t precision, FILE* stream)
 {
     while ((*string != '\0') && (precision))
     {
-        mbed_minimal_putchar(buffer, length, result, *string);
+        mbed_minimal_putchar(buffer, length, result, *string, stream);
         string++;
         precision--;
     }
@@ -448,7 +441,7 @@ static void mbed_minimal_formatted_string_string(char* buffer, size_t length, in
  *
  * @return     Number of characters written.
  */
-int mbed_minimal_formatted_string(char* buffer, size_t length, const char* format, va_list arguments)
+int mbed_minimal_formatted_string(char* buffer, size_t length, const char* format, va_list arguments, FILE* stream)
 {
     /* initialize output if needed */
     MBED_INITIALIZE_PRINT();
@@ -647,7 +640,7 @@ int mbed_minimal_formatted_string(char* buffer, size_t length, const char* forma
 
                     index = next_index;
 
-                    mbed_minimal_formatted_string_signed(buffer, length, &result, value);
+                    mbed_minimal_formatted_string_signed(buffer, length, &result, value, stream);
                 }
                 /* unsigned integer */
                 else if ((next == 'u') || (next == 'x') || (next == 'X'))
@@ -706,11 +699,11 @@ int mbed_minimal_formatted_string(char* buffer, size_t length, const char* forma
                     /* write unsigned or hexadecimal */
                     if (next == 'u')
                     {
-                        mbed_minimal_formatted_string_unsigned(buffer, length, &result, value);
+                        mbed_minimal_formatted_string_unsigned(buffer, length, &result, value, stream);
                     }
                     else
                     {
-                        mbed_minimal_formatted_string_hexadecimal(buffer, length, &result, value);
+                        mbed_minimal_formatted_string_hexadecimal(buffer, length, &result, value, stream);
                     }
                 }
 #if MBED_CONF_MINIMAL_PRINTF_ENABLE_FLOATING_POINT
@@ -720,7 +713,7 @@ int mbed_minimal_formatted_string(char* buffer, size_t length, const char* forma
                     double value = va_arg(arguments, double);
                     index = next_index;
 
-                    mbed_minimal_formatted_string_double(buffer, length, &result, value);
+                    mbed_minimal_formatted_string_double(buffer, length, &result, value, stream);
                 }
 #endif
                 /* character */
@@ -729,7 +722,7 @@ int mbed_minimal_formatted_string(char* buffer, size_t length, const char* forma
                     char value = va_arg(arguments, MBED_SIGNED_NATIVE_TYPE);
                     index = next_index;
 
-                    mbed_minimal_formatted_string_character(buffer, length, &result, value);
+                    mbed_minimal_formatted_string_character(buffer, length, &result, value, stream);
                 }
                 /* string */
                 else if (next == 's')
@@ -737,7 +730,7 @@ int mbed_minimal_formatted_string(char* buffer, size_t length, const char* forma
                     char* value = va_arg(arguments, char*);
                     index = next_index;
 
-                    mbed_minimal_formatted_string_string(buffer, length, &result, value, precision);
+                    mbed_minimal_formatted_string_string(buffer, length, &result, value, precision, stream);
                 }
                 /* pointer */
                 else if (next == 'p')
@@ -745,21 +738,21 @@ int mbed_minimal_formatted_string(char* buffer, size_t length, const char* forma
                     void* value = va_arg(arguments, void*);
                     index = next_index;
 
-                    mbed_minimal_formatted_string_void_pointer(buffer, length, &result, value);
+                    mbed_minimal_formatted_string_void_pointer(buffer, length, &result, value, stream);
                 }
                 else
                 {
                     /* write all characters between format beginning and unrecognied modifier */
                     while (index < next_index)
                     {
-                        mbed_minimal_formatted_string_character(buffer, length, &result, format[index]);
+                        mbed_minimal_formatted_string_character(buffer, length, &result, format[index], stream);
                         index++;
                     }
 
                     /* if this is not the end of the string, write unrecognized modifier */
                     if (next != '\0')
                     {
-                        mbed_minimal_formatted_string_character(buffer, length, &result, format[index]);
+                        mbed_minimal_formatted_string_character(buffer, length, &result, format[index], stream);
                     }
                     else
                     {
@@ -772,7 +765,7 @@ int mbed_minimal_formatted_string(char* buffer, size_t length, const char* forma
             /* not a format specifier */
             {
                 /* write normal character */
-                mbed_minimal_formatted_string_character(buffer, length, &result, format[index]);
+                mbed_minimal_formatted_string_character(buffer, length, &result, format[index], stream);
             }
         }
 
@@ -793,25 +786,3 @@ int mbed_minimal_formatted_string(char* buffer, size_t length, const char* forma
 
     return result;
 }
-
-#if MBED_CONF_MINIMAL_PRINTF_ENABLE_FILE_STREAM
-/**
- * @brief      Parse formatted string and write to file handler.
- *
- * @param      stream     The FILE stream to write to.
- * @param[in]  format     The formatted string.
- * @param[in]  arguments  The va_list arguments.
- *
- * @return     Number of characters written.
- */
-int mbed_minimal_formatted_file(FILE* stream, const char* format, va_list arguments)
-{
-    int result = 0;
-
-    global_file_stream = stream;
-    result = mbed_minimal_formatted_string(NULL, LONG_MAX, format, arguments);
-    global_file_stream = NULL;
-
-    return result;
-}
-#endif
