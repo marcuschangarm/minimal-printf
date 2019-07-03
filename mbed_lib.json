@@ -11,7 +11,7 @@
         },
         "enable-file-stream": {
             "help": "Enable printing to a FILE stream",
-            "value": false
+            "value": true
         },
         "enable-floating-point": {
             "help": "Enable floating point printing",
